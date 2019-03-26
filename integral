@@ -1,0 +1,16 @@
+import numpy as np
+import matplotlib.pyplot as plt
+
+
+array = np.loadtxt("fartsvart.txt", dtype = str, skiprows=1)
+
+lst = [float(i) for i in array]
+print(lst)
+nylst = []
+
+for element in lst:
+    nylst.append(element**2)
+
+integral = np.trapz(nylst, dx=0.01)
+print(integral)
+y = [0, 0.1, 0.2, 0.3, 0.4, 0.5, 0.6]

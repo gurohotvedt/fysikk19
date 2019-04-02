@@ -1,0 +1,350 @@
+%matplotlib inline
+
+from numpy import *
+from numpy.linalg import norm
+import matplotlib.pyplot as plt
+from matplotlib.pyplot import *
+newparams = {'figure.figsize': (8.0, 4.0), 'axes.grid': True,
+             'lines.markersize': 8, 'lines.linewidth': 2,
+             'font.size': 14}
+rcParams.update(newparams)
+
+
+
+
+def iptrack(filename):
+    data=np.loadtxt(filename,skiprows=2)
+    return np.polyfit(data[:,1],data[:,2],6)
+
+def iptrack1(filename):
+    data=np.loadtxt(filename,skiprows=2)
+    return np.polyfit(data[:,0],data[:,1],6)
+
+
+#print(iptrack("Data.txt"))
+
+
+def evalPoly(p,x):
+        return np.polyval(p,x)
+
+
+x_liste = []
+for i in range(0,1100):
+    x_liste.append(float(i/1000))
+print(x_liste)
+
+(evalPoly(iptrack("Data.txt"),x_liste))
+
+y = (evalPoly(iptrack("Data.txt"),x_liste))
+
+#plt.plot(x_liste, y)
+
+
+def punkter(filename):
+    data=np.loadtxt(filename,skiprows=2)
+    return data[:,1], data[:,2]
+
+xliste, yliste = punkter("Data.txt")
+#print(xliste)
+#print(yliste)
+#plt.plot(xliste,yliste)
+# plt.show()
+
+"""
+xliste1, yliste1 = punkter("DataFart1.txt")
+#print(xliste1)
+#print(yliste1)
+#plot(xliste1,yliste1)
+# plt.show()
+
+
+xliste2, yliste2 = punkter("DataFart2.txt")
+print("-------Liste2")
+print(xliste2)
+print(yliste2)
+plot(xliste2,yliste2)
+# plt.show()
+"""
+
+
+def trvalues(p,x):
+    y=np.polyval(p,x)
+    dp=np.polyder(p)
+    dydx=np.polyval(dp,x)
+    ddp=np.polyder(dp)
+    d2ydx2=np.polyval(ddp,x)
+    alpha=np.arctan(-dydx)
+    R=(1.0+dydx**2)**1.5/d2ydx2
+    return [y,dydx,d2ydx2,alpha,R]
+
+
+alpha_liste=[]
+values_liste=[]
+for x in x_liste:
+    values = trvalues(iptrack("Data.txt"),x)
+    values_liste.append(values)
+    alpha = values[3]
+    alpha_liste.append(alpha)
+
+k1 = 0.038
+k2 = 0.039
+
+#plt.plot(x_liste, alpha_liste, '.-')
+
+def alpha(x):
+    return trvalues(iptrack("Data.txt"), x)[3]
+
+def R(x):
+    return trvalues(iptrack("Data.txt"), x)[4]
+
+def R2(x):
+    return trvalues(iptrack("Data2.txt"), x)[4]
+
+def v1(x):
+    fart = evalPoly(iptrack1("rødfartposisjon.txt"), [x])
+    return fart[0]
+
+
+def v2(x):
+    fart = evalPoly(iptrack1("svartfartposisjon.txt"), [x])
+    return fart[0]
+
+
+def normalkraft1(x):
+    return m1*g*np.cos(alpha(x))+(m1*((v1(x))**2))/(R(x))
+    #return m1*g*np.cos(alpha(x))
+
+
+def normalkraft2(x):
+    return m2*g*np.cos(alpha(x))+(m2*((v2(x))**2))/(R2(x))
+    #return m2*g*np.cos(alpha(x))
+    
+def normalkraft11(x, v):
+    return m1*g*np.cos(alpha(x))+(m1*((v)**2))/(R(x))
+    #return m1*g*np.cos(alpha(x))
+
+
+def normalkraft22(x, v):
+    return m2*g*np.cos(alpha(x))+(m2*((v)**2))/(R2(x))
+    #return m2*g*np.cos(alpha(x))
+
+def luft1(x):
+    return -k1*v1(x)
+
+def luft2(x):
+    return -k2*v2(x)
+
+def luft11(x,v):
+    return -k1*v
+
+def luft22(x,v):
+    return -k2*v
+
+x_liste = []
+for i in range(0, 1000):
+    x_liste.append(float(i / 1000))
+
+normalkraft1_liste = []
+for x in x_liste:
+    normalkraft1_liste.append(normalkraft1(x))
+
+normalkraft2_liste = []
+for x in x_liste:
+    normalkraft2_liste.append(normalkraft2(x))
+
+#plt.xlabel('x (m)')
+#plt.ylabel('N (N)')
+#plt.plot(x_liste, normalkraft1_liste)
+#plt.plot(x_liste, normalkraft2_liste)
+#plt.show()
+
+g = 9.81
+m1 = 0.027
+m2 = 0.030
+
+h = 0.01
+n = 100
+k = 0.04
+k1 = 0.038
+k2 = 0.039
+
+
+# The right hand side of the ODE
+def f(x, v):
+    return g*np.sin(alpha(x))-(k1*v)/m1
+
+
+def f2(x, v):
+    return g*np.sin(alpha(x))-(k2*v)/m2
+
+
+def euler(f, x, v, h):
+    # One step of the Euler method
+    v_next = v + h * f(x, v)
+    x_next = x + h
+    return x_next, v_next
+
+
+def ode_solver(f, x0, xend, v0, h, method=euler):
+    # Generic solver for ODEs
+    #    y' = f(x,y), y(a)=y0
+    # Input: f, the integration interval x0 and xend,
+    #        the stepsize h and the method of choice.
+    #
+    # Output: Arrays with the x- and the corresponding y-values.
+
+    # Initializing:
+    v_num = array([v0])  # Array for the solution y
+    x_num = array([x0])  # Array for the x-values
+
+    xn = x0  # Running values for x and y
+    vn = v0
+    print (x0)
+
+    # Main loop
+    while xn < xend - 1.e-15:  # Buffer for truncation errors
+        xn, vn = method(f, xn, vn, h)  # Do one step by the method of choice
+
+        # Extend the arrays for x and y
+        v_num = concatenate((v_num, array([vn])))
+        x_num = append(x_num, xn)
+    
+    return x_num, v_num
+
+
+x0, xend = 0, 1  # Integration interval
+v0 = 0  # Initial value for y
+h = 0.05  # Stepsize
+
+#--------------------Fart---------------------------------
+
+# Solve the equation
+x_num, v_num = ode_solver(f, x0, xend, v0, h)
+x_num2, v_num2 = ode_solver(f2, x0, xend, v0, h)
+
+# Plot of the exact solution
+x = linspace(x0, xend, 101)
+
+# Plot of the numerical solution
+
+v1_liste = []
+for x in x_liste:
+    v1_liste.append(v1(x))
+
+v2_liste = []
+for x in x_liste:
+    v2_liste.append(v2(x))
+
+
+print(v_num)
+plt.xlabel('x (m)')
+plt.ylabel('v(x) (m/s)')
+plt.plot(x_liste, v1_liste)
+plt.plot(x_liste,v2_liste)
+plt.plot(x_num, v_num, 'g:')
+plt.plot(x_num2, v_num2, 'r:')
+plt.show()
+
+#--------------------Normalkraft---------------------------
+
+nkraft_liste1 =[]
+nkraft_liste2 =[]
+for i in range(0, len(x_num)):
+    nkraft_liste1.append(normalkraft11(x_num[i], v_num[i]))
+    nkraft_liste2.append(normalkraft22(x_num2[i], v_num2[i]))
+
+plt.plot(x_num, nkraft_liste1, 'g:')
+plt.plot(x_num, nkraft_liste2, 'r:')
+#plt.show()
+
+
+plt.xlabel('x (m)')
+plt.ylabel('N (N)')
+plt.plot(x_liste, normalkraft1_liste)
+plt.plot(x_liste, normalkraft2_liste)
+plt.show()
+
+
+#---------------------- friksjonskraft ---------------------
+
+def friksjonskraft1(x):
+    return (2/5)*m1*((g*np.sin(alpha(x))-((k*v1(x))/m1))/(7/5))
+
+
+
+def friksjonskraft2(x):
+    return (2/5) * m2 * ((g * np.sin(alpha(x)) - ((k * v2(x)) / m2)) / (7 / 5))
+
+
+def friksjonskraft11(x, v):
+    #return (2/5)*m1*((g*np.sin(alpha(x))-(((k*v)/m1))/(7/5)))
+    return (2/5) * m1 * ((g * np.sin(alpha(x)) - ((k * v) / m1)) / (7 / 5))
+
+
+def friksjonskraft22(x, v):
+    return (2/5) * m2 * ((g * np.sin(alpha(x)) - ((k * v) / m2)) / (7 / 5))
+
+
+
+
+x_liste = []
+for i in range(0, 1000):
+    x_liste.append(float(i / 1000))
+
+friksjonskraft1_liste = []
+for x in x_liste:
+    friksjonskraft1_liste.append(friksjonskraft1(x))
+
+friksjonskraft2_liste = []
+for x in x_liste:
+    friksjonskraft2_liste.append(friksjonskraft2(x))
+
+fkraft_liste1 =[]
+fkraft_liste2 =[]
+for i in range(0, len(x_num)):
+    fkraft_liste1.append(friksjonskraft11(x_num[i], v_num[i]))
+    fkraft_liste2.append(friksjonskraft22(x_num[i], v_num2[i]))
+
+
+plt.xlabel('x (m)')
+plt.ylabel('f (N)')
+plt.plot(x_liste, friksjonskraft1_liste)
+plt.plot(x_liste, friksjonskraft2_liste)
+plt.plot(x_num, fkraft_liste1, 'g:')
+plt.plot(x_num, fkraft_liste2, 'r:')
+plt.show()
+
+
+
+#--------Luft---------------------------------
+
+
+
+luft1_liste = []
+for x in x_liste:
+    luft1_liste.append(luft1(x))
+
+luft2_liste = []
+for x in x_liste:
+    luft2_liste.append(luft2(x))
+
+luft_liste1 =[]
+luft_liste2 =[]
+for i in range(0, len(x_num)):
+    luft_liste1.append(luft11(x_num[i], v_num[i]))
+    luft_liste2.append(luft22(x_num[i], v_num2[i]))
+    
+  
+plt.xlabel('x (m)')
+plt.ylabel('f (N)')
+plt.plot(x_liste, luft1_liste)
+plt.plot(x_liste, luft2_liste)
+plt.plot(x_num, luft_liste1, 'g:')
+plt.plot(x_num, luft_liste2, 'r:')
+plt.show()
+
+
+
+
+    
+
